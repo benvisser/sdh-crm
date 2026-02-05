@@ -1,0 +1,457 @@
+// =============================================================================
+// Design Agency Sales CRM - Database Schema
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// USERS & AUTHENTICATION
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  firstName     String    @map("first_name")
+  lastName      String    @map("last_name")
+  avatarUrl     String?   @map("avatar_url")
+  role          UserRole  @default(SALES_REP)
+  isActive      Boolean   @default(true) @map("is_active")
+  lastLoginAt   DateTime? @map("last_login_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  ownedCompanies  Company[]
+  ownedContacts   Contact[]
+  ownedDeals      Deal[]
+  notes           Note[]
+  activities      Activity[]
+  teamMemberships TeamMember[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  SALES_MANAGER
+  SALES_REP
+}
+
+// TEAMS
+
+model Team {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  members     TeamMember[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  teamId    String   @map("team_id")
+  role      TeamRole @default(MEMBER)
+  joinedAt  DateTime @default(now()) @map("joined_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@map("team_members")
+}
+
+enum TeamRole {
+  LEAD
+  MEMBER
+}
+
+// COMPANIES
+
+model Company {
+  id              String        @id @default(cuid())
+  name            String
+  domain          String?
+  industry        String?
+  companySize     CompanySize?  @map("company_size")
+  annualRevenue   Decimal?      @map("annual_revenue") @db.Decimal(15, 2)
+  address         String?
+  city            String?
+  state           String?
+  postalCode      String?       @map("postal_code")
+  country         String?
+  phone           String?
+  website         String?
+  linkedinUrl     String?       @map("linkedin_url")
+  type            CompanyType   @default(PROSPECT)
+  source          LeadSource?
+  ownerId         String        @map("owner_id")
+  owner           User          @relation(fields: [ownerId], references: [id])
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  contacts        Contact[]
+  deals           Deal[]
+  notes           Note[]
+  activities      Activity[]
+  tags            CompanyTag[]
+
+  @@index([ownerId])
+  @@index([name])
+  @@index([domain])
+  @@index([type])
+  @@index([createdAt])
+  @@map("companies")
+}
+
+enum CompanySize {
+  SOLO
+  SMALL
+  MEDIUM
+  LARGE
+  ENTERPRISE
+  CORPORATION
+}
+
+enum CompanyType {
+  PROSPECT
+  LEAD
+  CUSTOMER
+  FORMER_CUSTOMER
+  PARTNER
+  COMPETITOR
+}
+
+// CONTACTS
+
+model Contact {
+  id              String        @id @default(cuid())
+  firstName       String        @map("first_name")
+  lastName        String        @map("last_name")
+  jobTitle        String?       @map("job_title")
+  department      String?
+  email           String?
+  phone           String?
+  mobilePhone     String?       @map("mobile_phone")
+  linkedinUrl     String?       @map("linkedin_url")
+  status          ContactStatus @default(ACTIVE)
+  isPrimary       Boolean       @default(false) @map("is_primary")
+  leadScore       Int           @default(0) @map("lead_score")
+  source          LeadSource?
+  companyId       String?       @map("company_id")
+  company         Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  ownerId         String        @map("owner_id")
+  owner           User          @relation(fields: [ownerId], references: [id])
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  lastContactedAt DateTime?     @map("last_contacted_at")
+
+  dealContacts    DealContact[]
+  notes           Note[]
+  activities      Activity[]
+  tags            ContactTag[]
+
+  @@index([companyId])
+  @@index([ownerId])
+  @@index([email])
+  @@index([lastName, firstName])
+  @@index([status])
+  @@index([createdAt])
+  @@index([lastContactedAt])
+  @@map("contacts")
+}
+
+enum ContactStatus {
+  ACTIVE
+  INACTIVE
+  DO_NOT_CONTACT
+  CHURNED
+}
+
+// DEALS
+
+model Deal {
+  id                String        @id @default(cuid())
+  name              String
+  value             Decimal       @db.Decimal(15, 2)
+  currency          String        @default("USD")
+  probability       Int           @default(50)
+  weightedValue     Decimal?      @map("weighted_value") @db.Decimal(15, 2)
+  stage             DealStage     @default(QUALIFIED)
+  pipelinePosition  Int           @default(0) @map("pipeline_position")
+  expectedCloseDate DateTime      @map("expected_close_date") @db.Date
+  actualCloseDate   DateTime?     @map("actual_close_date") @db.Date
+  closedStatus      ClosedStatus? @map("closed_status")
+  lostReason        LostReason?   @map("lost_reason")
+  lostReasonNote    String?       @map("lost_reason_note")
+  competitorId      String?       @map("competitor_id")
+  source            LeadSource?
+  projectType       ProjectType?  @map("project_type")
+  estimatedHours    Int?          @map("estimated_hours")
+  companyId         String        @map("company_id")
+  company           Company       @relation(fields: [companyId], references: [id])
+  ownerId           String        @map("owner_id")
+  owner             User          @relation(fields: [ownerId], references: [id])
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  stageChangedAt    DateTime      @default(now()) @map("stage_changed_at")
+
+  contacts          DealContact[]
+  notes             Note[]
+  activities        Activity[]
+  stageHistory      DealStageHistory[]
+  tags              DealTag[]
+
+  @@index([companyId])
+  @@index([ownerId])
+  @@index([stage])
+  @@index([expectedCloseDate])
+  @@index([actualCloseDate])
+  @@index([createdAt])
+  @@index([closedStatus])
+  @@index([value])
+  @@index([ownerId, stage])
+  @@index([stage, expectedCloseDate])
+  @@index([closedStatus, actualCloseDate])
+  @@map("deals")
+}
+
+model DealContact {
+  id        String          @id @default(cuid())
+  dealId    String          @map("deal_id")
+  contactId String          @map("contact_id")
+  role      DealContactRole @default(STAKEHOLDER)
+  isPrimary Boolean         @default(false) @map("is_primary")
+
+  deal      Deal            @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  contact   Contact         @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, contactId])
+  @@map("deal_contacts")
+}
+
+enum DealContactRole {
+  DECISION_MAKER
+  INFLUENCER
+  CHAMPION
+  STAKEHOLDER
+  BLOCKER
+  END_USER
+}
+
+enum DealStage {
+  QUALIFIED
+  DISCOVERY
+  PROPOSAL
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum ClosedStatus {
+  WON
+  LOST
+}
+
+enum LostReason {
+  PRICE
+  TIMING
+  COMPETITOR
+  NO_BUDGET
+  NO_DECISION
+  WENT_SILENT
+  NOT_A_FIT
+  OTHER
+}
+
+enum ProjectType {
+  BRANDING
+  WEB_DESIGN
+  WEB_DEVELOPMENT
+  MOBILE_APP
+  UI_UX
+  PRINT
+  MARKETING
+  VIDEO
+  PHOTOGRAPHY
+  OTHER
+}
+
+model DealStageHistory {
+  id          String     @id @default(cuid())
+  dealId      String     @map("deal_id")
+  fromStage   DealStage? @map("from_stage")
+  toStage     DealStage  @map("to_stage")
+  changedAt   DateTime   @default(now()) @map("changed_at")
+  changedById String     @map("changed_by_id")
+
+  deal        Deal       @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+  @@index([changedAt])
+  @@index([toStage, changedAt])
+  @@map("deal_stage_history")
+}
+
+// NOTES
+
+model Note {
+  id          String    @id @default(cuid())
+  content     String    @db.Text
+  isPinned    Boolean   @default(false) @map("is_pinned")
+  companyId   String?   @map("company_id")
+  contactId   String?   @map("contact_id")
+  dealId      String?   @map("deal_id")
+  company     Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact     Contact?  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  deal        Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  authorId    String    @map("author_id")
+  author      User      @relation(fields: [authorId], references: [id])
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@index([contactId])
+  @@index([dealId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("notes")
+}
+
+// ACTIVITIES
+
+model Activity {
+  id            String         @id @default(cuid())
+  type          ActivityType
+  subject       String
+  description   String?        @db.Text
+  dueDate       DateTime?      @map("due_date")
+  completedAt   DateTime?      @map("completed_at")
+  duration      Int?
+  status        ActivityStatus @default(SCHEDULED)
+  priority      Priority       @default(MEDIUM)
+  companyId     String?        @map("company_id")
+  contactId     String?        @map("contact_id")
+  dealId        String?        @map("deal_id")
+  company       Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contact       Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal          Deal?          @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  assignedToId  String         @map("assigned_to_id")
+  assignedTo    User           @relation(fields: [assignedToId], references: [id])
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  @@index([assignedToId])
+  @@index([companyId])
+  @@index([contactId])
+  @@index([dealId])
+  @@index([dueDate])
+  @@index([status])
+  @@index([type])
+  @@index([assignedToId, status, dueDate])
+  @@map("activities")
+}
+
+enum ActivityType {
+  CALL
+  MEETING
+  EMAIL
+  TASK
+  FOLLOW_UP
+  DEMO
+  PRESENTATION
+}
+
+enum ActivityStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// TAGS
+
+model Tag {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  color       String        @default("#6B7280")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  companies   CompanyTag[]
+  contacts    ContactTag[]
+  deals       DealTag[]
+
+  @@map("tags")
+}
+
+model CompanyTag {
+  companyId String  @map("company_id")
+  tagId     String  @map("tag_id")
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([companyId, tagId])
+  @@map("company_tags")
+}
+
+model ContactTag {
+  contactId String  @map("contact_id")
+  tagId     String  @map("tag_id")
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, tagId])
+  @@map("contact_tags")
+}
+
+model DealTag {
+  dealId String @map("deal_id")
+  tagId  String @map("tag_id")
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([dealId, tagId])
+  @@map("deal_tags")
+}
+
+// SHARED ENUMS
+
+enum LeadSource {
+  WEBSITE
+  REFERRAL
+  COLD_OUTREACH
+  LINKEDIN
+  CONFERENCE
+  INBOUND_CALL
+  PARTNER
+  ADVERTISING
+  CONTENT
+  OTHER
+}
+
+// SETTINGS
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
