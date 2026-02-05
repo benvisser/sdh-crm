@@ -49,10 +49,14 @@ export function fullName(firstName: string, lastName: string): string {
 
 export function stageBadgeColor(stage: string): string {
   const colors: Record<string, string> = {
-    QUALIFIED: "bg-blue-100 text-blue-800",
-    DISCOVERY: "bg-purple-100 text-purple-800",
-    PROPOSAL: "bg-amber-100 text-amber-800",
-    NEGOTIATION: "bg-orange-100 text-orange-800",
+    INQUIRY: "bg-slate-100 text-slate-800",
+    DISCOVERY_CALL_SCHEDULED: "bg-blue-100 text-blue-800",
+    PROPOSAL_NEEDED: "bg-yellow-100 text-yellow-800",
+    PROPOSAL_SENT: "bg-amber-100 text-amber-800",
+    PROPOSAL_REVIEWED: "bg-orange-100 text-orange-800",
+    DECISION_MAKER: "bg-purple-100 text-purple-800",
+    NEGOTIATION: "bg-pink-100 text-pink-800",
+    CONTRACT: "bg-indigo-100 text-indigo-800",
     CLOSED_WON: "bg-green-100 text-green-800",
     CLOSED_LOST: "bg-red-100 text-red-800",
   };
@@ -61,10 +65,14 @@ export function stageBadgeColor(stage: string): string {
 
 export function stageLabel(stage: string): string {
   const labels: Record<string, string> = {
-    QUALIFIED: "Qualified",
-    DISCOVERY: "Discovery",
-    PROPOSAL: "Proposal",
+    INQUIRY: "Inquiry",
+    DISCOVERY_CALL_SCHEDULED: "Discovery Call Scheduled",
+    PROPOSAL_NEEDED: "Proposal Needed",
+    PROPOSAL_SENT: "Proposal Sent",
+    PROPOSAL_REVIEWED: "Proposal Reviewed",
+    DECISION_MAKER: "With Decision Maker",
     NEGOTIATION: "Negotiation",
+    CONTRACT: "Contract",
     CLOSED_WON: "Closed Won",
     CLOSED_LOST: "Closed Lost",
   };

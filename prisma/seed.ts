@@ -615,8 +615,8 @@ async function main() {
       value: 95000,
       probability: 80,
       weightedValue: 76000,
-      stage: "NEGOTIATION",
-      pipelinePosition: 3,
+      stage: "CONTRACT",
+      pipelinePosition: 7,
       expectedCloseDate: daysFromNow(14),
       source: "WEBSITE",
       projectType: "UI_UX",
@@ -633,8 +633,8 @@ async function main() {
       value: 45000,
       probability: 60,
       weightedValue: 27000,
-      stage: "PROPOSAL",
-      pipelinePosition: 2,
+      stage: "PROPOSAL_SENT",
+      pipelinePosition: 3,
       expectedCloseDate: daysFromNow(30),
       source: "LINKEDIN",
       projectType: "WEB_DESIGN",
@@ -651,7 +651,7 @@ async function main() {
       value: 8500,
       probability: 40,
       weightedValue: 3400,
-      stage: "DISCOVERY",
+      stage: "DISCOVERY_CALL_SCHEDULED",
       pipelinePosition: 1,
       expectedCloseDate: daysFromNow(45),
       source: "CONFERENCE",
@@ -669,7 +669,7 @@ async function main() {
       value: 150000,
       probability: 30,
       weightedValue: 45000,
-      stage: "QUALIFIED",
+      stage: "INQUIRY",
       pipelinePosition: 0,
       expectedCloseDate: daysFromNow(90),
       source: "COLD_OUTREACH",
@@ -729,7 +729,7 @@ async function main() {
       value: 120000,
       probability: 50,
       weightedValue: 60000,
-      stage: "DISCOVERY",
+      stage: "DISCOVERY_CALL_SCHEDULED",
       pipelinePosition: 1,
       expectedCloseDate: daysFromNow(60),
       source: "WEBSITE",
@@ -747,8 +747,8 @@ async function main() {
       value: 18000,
       probability: 70,
       weightedValue: 12600,
-      stage: "PROPOSAL",
-      pipelinePosition: 2,
+      stage: "PROPOSAL_REVIEWED",
+      pipelinePosition: 4,
       expectedCloseDate: daysFromNow(21),
       source: "LINKEDIN",
       projectType: "BRANDING",
@@ -787,8 +787,8 @@ async function main() {
       value: 130000,
       probability: 75,
       weightedValue: 97500,
-      stage: "NEGOTIATION",
-      pipelinePosition: 3,
+      stage: "DECISION_MAKER",
+      pipelinePosition: 5,
       expectedCloseDate: daysFromNow(20),
       source: "REFERRAL",
       projectType: "MOBILE_APP",
@@ -806,7 +806,7 @@ async function main() {
       probability: 90,
       weightedValue: 61200,
       stage: "NEGOTIATION",
-      pipelinePosition: 3,
+      pipelinePosition: 6,
       expectedCloseDate: daysFromNow(10),
       source: "REFERRAL",
       projectType: "UI_UX",
@@ -843,7 +843,7 @@ async function main() {
       value: 15000,
       probability: 55,
       weightedValue: 8250,
-      stage: "PROPOSAL",
+      stage: "PROPOSAL_NEEDED",
       pipelinePosition: 2,
       expectedCloseDate: daysFromNow(35),
       source: "COLD_OUTREACH",
@@ -942,83 +942,102 @@ async function main() {
   console.log("Creating deal stage history...");
   await prisma.dealStageHistory.createMany({
     data: [
-      // Deal 1: Meridian Health - Brand Identity (went all the way to CLOSED_WON)
-      { dealId: deal1.id, fromStage: null, toStage: "QUALIFIED", changedAt: daysAgo(90), changedById: alex.id },
-      { dealId: deal1.id, fromStage: "QUALIFIED", toStage: "DISCOVERY", changedAt: daysAgo(75), changedById: alex.id },
-      { dealId: deal1.id, fromStage: "DISCOVERY", toStage: "PROPOSAL", changedAt: daysAgo(55), changedById: alex.id },
-      { dealId: deal1.id, fromStage: "PROPOSAL", toStage: "NEGOTIATION", changedAt: daysAgo(40), changedById: alex.id },
-      { dealId: deal1.id, fromStage: "NEGOTIATION", toStage: "CLOSED_WON", changedAt: daysAgo(28), changedById: alex.id },
+      // Deal 1: Meridian Health - Brand Identity (full pipeline to CLOSED_WON)
+      { dealId: deal1.id, fromStage: null, toStage: "INQUIRY", changedAt: daysAgo(90), changedById: alex.id },
+      { dealId: deal1.id, fromStage: "INQUIRY", toStage: "DISCOVERY_CALL_SCHEDULED", changedAt: daysAgo(80), changedById: alex.id },
+      { dealId: deal1.id, fromStage: "DISCOVERY_CALL_SCHEDULED", toStage: "PROPOSAL_NEEDED", changedAt: daysAgo(65), changedById: alex.id },
+      { dealId: deal1.id, fromStage: "PROPOSAL_NEEDED", toStage: "PROPOSAL_SENT", changedAt: daysAgo(55), changedById: alex.id },
+      { dealId: deal1.id, fromStage: "PROPOSAL_SENT", toStage: "PROPOSAL_REVIEWED", changedAt: daysAgo(48), changedById: alex.id },
+      { dealId: deal1.id, fromStage: "PROPOSAL_REVIEWED", toStage: "DECISION_MAKER", changedAt: daysAgo(42), changedById: alex.id },
+      { dealId: deal1.id, fromStage: "DECISION_MAKER", toStage: "NEGOTIATION", changedAt: daysAgo(38), changedById: alex.id },
+      { dealId: deal1.id, fromStage: "NEGOTIATION", toStage: "CONTRACT", changedAt: daysAgo(32), changedById: alex.id },
+      { dealId: deal1.id, fromStage: "CONTRACT", toStage: "CLOSED_WON", changedAt: daysAgo(28), changedById: alex.id },
 
-      // Deal 2: Vertex SaaS - Dashboard UI (progressed to NEGOTIATION)
-      { dealId: deal2.id, fromStage: null, toStage: "QUALIFIED", changedAt: daysAgo(40), changedById: alex.id },
-      { dealId: deal2.id, fromStage: "QUALIFIED", toStage: "DISCOVERY", changedAt: daysAgo(28), changedById: alex.id },
-      { dealId: deal2.id, fromStage: "DISCOVERY", toStage: "PROPOSAL", changedAt: daysAgo(15), changedById: alex.id },
-      { dealId: deal2.id, fromStage: "PROPOSAL", toStage: "NEGOTIATION", changedAt: daysAgo(5), changedById: alex.id },
+      // Deal 2: Vertex SaaS - Dashboard UI (progressed to CONTRACT)
+      { dealId: deal2.id, fromStage: null, toStage: "INQUIRY", changedAt: daysAgo(40), changedById: alex.id },
+      { dealId: deal2.id, fromStage: "INQUIRY", toStage: "DISCOVERY_CALL_SCHEDULED", changedAt: daysAgo(32), changedById: alex.id },
+      { dealId: deal2.id, fromStage: "DISCOVERY_CALL_SCHEDULED", toStage: "PROPOSAL_NEEDED", changedAt: daysAgo(22), changedById: alex.id },
+      { dealId: deal2.id, fromStage: "PROPOSAL_NEEDED", toStage: "PROPOSAL_SENT", changedAt: daysAgo(15), changedById: alex.id },
+      { dealId: deal2.id, fromStage: "PROPOSAL_SENT", toStage: "PROPOSAL_REVIEWED", changedAt: daysAgo(10), changedById: alex.id },
+      { dealId: deal2.id, fromStage: "PROPOSAL_REVIEWED", toStage: "NEGOTIATION", changedAt: daysAgo(7), changedById: alex.id },
+      { dealId: deal2.id, fromStage: "NEGOTIATION", toStage: "CONTRACT", changedAt: daysAgo(5), changedById: alex.id },
 
-      // Deal 3: Bloom & Branch (progressed to PROPOSAL)
-      { dealId: deal3.id, fromStage: null, toStage: "QUALIFIED", changedAt: daysAgo(20), changedById: sam.id },
-      { dealId: deal3.id, fromStage: "QUALIFIED", toStage: "DISCOVERY", changedAt: daysAgo(12), changedById: sam.id },
-      { dealId: deal3.id, fromStage: "DISCOVERY", toStage: "PROPOSAL", changedAt: daysAgo(3), changedById: sam.id },
+      // Deal 3: Bloom & Branch (progressed to PROPOSAL_SENT)
+      { dealId: deal3.id, fromStage: null, toStage: "INQUIRY", changedAt: daysAgo(20), changedById: sam.id },
+      { dealId: deal3.id, fromStage: "INQUIRY", toStage: "DISCOVERY_CALL_SCHEDULED", changedAt: daysAgo(14), changedById: sam.id },
+      { dealId: deal3.id, fromStage: "DISCOVERY_CALL_SCHEDULED", toStage: "PROPOSAL_NEEDED", changedAt: daysAgo(8), changedById: sam.id },
+      { dealId: deal3.id, fromStage: "PROPOSAL_NEEDED", toStage: "PROPOSAL_SENT", changedAt: daysAgo(3), changedById: sam.id },
 
-      // Deal 4: Catalyst Ventures (moved to DISCOVERY)
-      { dealId: deal4.id, fromStage: null, toStage: "QUALIFIED", changedAt: daysAgo(15), changedById: jordan.id },
-      { dealId: deal4.id, fromStage: "QUALIFIED", toStage: "DISCOVERY", changedAt: daysAgo(7), changedById: jordan.id },
+      // Deal 4: Catalyst Ventures (moved to DISCOVERY_CALL_SCHEDULED)
+      { dealId: deal4.id, fromStage: null, toStage: "INQUIRY", changedAt: daysAgo(15), changedById: jordan.id },
+      { dealId: deal4.id, fromStage: "INQUIRY", toStage: "DISCOVERY_CALL_SCHEDULED", changedAt: daysAgo(7), changedById: jordan.id },
 
-      // Deal 5: NovaTech - Website Overhaul (just qualified)
-      { dealId: deal5.id, fromStage: null, toStage: "QUALIFIED", changedAt: daysAgo(10), changedById: sam.id },
+      // Deal 5: NovaTech - Website Overhaul (just inquiry)
+      { dealId: deal5.id, fromStage: null, toStage: "INQUIRY", changedAt: daysAgo(10), changedById: sam.id },
 
-      // Deal 6: Pinnacle Financial - Annual Report (went to CLOSED_WON)
-      { dealId: deal6.id, fromStage: null, toStage: "QUALIFIED", changedAt: daysAgo(120), changedById: alex.id },
-      { dealId: deal6.id, fromStage: "QUALIFIED", toStage: "DISCOVERY", changedAt: daysAgo(100), changedById: alex.id },
-      { dealId: deal6.id, fromStage: "DISCOVERY", toStage: "PROPOSAL", changedAt: daysAgo(80), changedById: alex.id },
-      { dealId: deal6.id, fromStage: "PROPOSAL", toStage: "NEGOTIATION", changedAt: daysAgo(65), changedById: alex.id },
-      { dealId: deal6.id, fromStage: "NEGOTIATION", toStage: "CLOSED_WON", changedAt: daysAgo(55), changedById: alex.id },
+      // Deal 6: Pinnacle Financial - Annual Report (full pipeline to CLOSED_WON)
+      { dealId: deal6.id, fromStage: null, toStage: "INQUIRY", changedAt: daysAgo(120), changedById: alex.id },
+      { dealId: deal6.id, fromStage: "INQUIRY", toStage: "DISCOVERY_CALL_SCHEDULED", changedAt: daysAgo(105), changedById: alex.id },
+      { dealId: deal6.id, fromStage: "DISCOVERY_CALL_SCHEDULED", toStage: "PROPOSAL_NEEDED", changedAt: daysAgo(90), changedById: alex.id },
+      { dealId: deal6.id, fromStage: "PROPOSAL_NEEDED", toStage: "PROPOSAL_SENT", changedAt: daysAgo(80), changedById: alex.id },
+      { dealId: deal6.id, fromStage: "PROPOSAL_SENT", toStage: "PROPOSAL_REVIEWED", changedAt: daysAgo(72), changedById: alex.id },
+      { dealId: deal6.id, fromStage: "PROPOSAL_REVIEWED", toStage: "DECISION_MAKER", changedAt: daysAgo(68), changedById: alex.id },
+      { dealId: deal6.id, fromStage: "DECISION_MAKER", toStage: "CONTRACT", changedAt: daysAgo(60), changedById: alex.id },
+      { dealId: deal6.id, fromStage: "CONTRACT", toStage: "CLOSED_WON", changedAt: daysAgo(55), changedById: alex.id },
 
-      // Deal 7: Greenleaf Organics (went to CLOSED_LOST from PROPOSAL)
-      { dealId: deal7.id, fromStage: null, toStage: "QUALIFIED", changedAt: daysAgo(50), changedById: sam.id },
-      { dealId: deal7.id, fromStage: "QUALIFIED", toStage: "DISCOVERY", changedAt: daysAgo(40), changedById: sam.id },
-      { dealId: deal7.id, fromStage: "DISCOVERY", toStage: "PROPOSAL", changedAt: daysAgo(28), changedById: sam.id },
-      { dealId: deal7.id, fromStage: "PROPOSAL", toStage: "CLOSED_LOST", changedAt: daysAgo(18), changedById: sam.id },
+      // Deal 7: Greenleaf Organics (went to CLOSED_LOST from PROPOSAL_SENT)
+      { dealId: deal7.id, fromStage: null, toStage: "INQUIRY", changedAt: daysAgo(50), changedById: sam.id },
+      { dealId: deal7.id, fromStage: "INQUIRY", toStage: "DISCOVERY_CALL_SCHEDULED", changedAt: daysAgo(42), changedById: sam.id },
+      { dealId: deal7.id, fromStage: "DISCOVERY_CALL_SCHEDULED", toStage: "PROPOSAL_NEEDED", changedAt: daysAgo(35), changedById: sam.id },
+      { dealId: deal7.id, fromStage: "PROPOSAL_NEEDED", toStage: "PROPOSAL_SENT", changedAt: daysAgo(28), changedById: sam.id },
+      { dealId: deal7.id, fromStage: "PROPOSAL_SENT", toStage: "CLOSED_LOST", changedAt: daysAgo(18), changedById: sam.id },
 
-      // Deal 8: Atlas Real Estate (moved to DISCOVERY)
-      { dealId: deal8.id, fromStage: null, toStage: "QUALIFIED", changedAt: daysAgo(18), changedById: jordan.id },
-      { dealId: deal8.id, fromStage: "QUALIFIED", toStage: "DISCOVERY", changedAt: daysAgo(8), changedById: jordan.id },
+      // Deal 8: Atlas Real Estate (moved to DISCOVERY_CALL_SCHEDULED)
+      { dealId: deal8.id, fromStage: null, toStage: "INQUIRY", changedAt: daysAgo(18), changedById: jordan.id },
+      { dealId: deal8.id, fromStage: "INQUIRY", toStage: "DISCOVERY_CALL_SCHEDULED", changedAt: daysAgo(8), changedById: jordan.id },
 
-      // Deal 9: Drift Coffee (moved to PROPOSAL)
-      { dealId: deal9.id, fromStage: null, toStage: "QUALIFIED", changedAt: daysAgo(14), changedById: sam.id },
-      { dealId: deal9.id, fromStage: "QUALIFIED", toStage: "DISCOVERY", changedAt: daysAgo(9), changedById: sam.id },
-      { dealId: deal9.id, fromStage: "DISCOVERY", toStage: "PROPOSAL", changedAt: daysAgo(4), changedById: sam.id },
+      // Deal 9: Drift Coffee (progressed to PROPOSAL_REVIEWED)
+      { dealId: deal9.id, fromStage: null, toStage: "INQUIRY", changedAt: daysAgo(14), changedById: sam.id },
+      { dealId: deal9.id, fromStage: "INQUIRY", toStage: "DISCOVERY_CALL_SCHEDULED", changedAt: daysAgo(10), changedById: sam.id },
+      { dealId: deal9.id, fromStage: "DISCOVERY_CALL_SCHEDULED", toStage: "PROPOSAL_NEEDED", changedAt: daysAgo(7), changedById: sam.id },
+      { dealId: deal9.id, fromStage: "PROPOSAL_NEEDED", toStage: "PROPOSAL_SENT", changedAt: daysAgo(5), changedById: sam.id },
+      { dealId: deal9.id, fromStage: "PROPOSAL_SENT", toStage: "PROPOSAL_REVIEWED", changedAt: daysAgo(4), changedById: sam.id },
 
       // Deal 10: Ironclad Security (went to CLOSED_LOST from NEGOTIATION)
-      { dealId: deal10.id, fromStage: null, toStage: "QUALIFIED", changedAt: daysAgo(60), changedById: alex.id },
-      { dealId: deal10.id, fromStage: "QUALIFIED", toStage: "DISCOVERY", changedAt: daysAgo(45), changedById: alex.id },
-      { dealId: deal10.id, fromStage: "DISCOVERY", toStage: "PROPOSAL", changedAt: daysAgo(30), changedById: alex.id },
-      { dealId: deal10.id, fromStage: "PROPOSAL", toStage: "NEGOTIATION", changedAt: daysAgo(20), changedById: alex.id },
+      { dealId: deal10.id, fromStage: null, toStage: "INQUIRY", changedAt: daysAgo(60), changedById: alex.id },
+      { dealId: deal10.id, fromStage: "INQUIRY", toStage: "DISCOVERY_CALL_SCHEDULED", changedAt: daysAgo(50), changedById: alex.id },
+      { dealId: deal10.id, fromStage: "DISCOVERY_CALL_SCHEDULED", toStage: "PROPOSAL_SENT", changedAt: daysAgo(35), changedById: alex.id },
+      { dealId: deal10.id, fromStage: "PROPOSAL_SENT", toStage: "DECISION_MAKER", changedAt: daysAgo(25), changedById: alex.id },
+      { dealId: deal10.id, fromStage: "DECISION_MAKER", toStage: "NEGOTIATION", changedAt: daysAgo(20), changedById: alex.id },
       { dealId: deal10.id, fromStage: "NEGOTIATION", toStage: "CLOSED_LOST", changedAt: daysAgo(12), changedById: alex.id },
 
-      // Deal 11: Pinnacle - Mobile Banking App (progressed to NEGOTIATION)
-      { dealId: deal11.id, fromStage: null, toStage: "QUALIFIED", changedAt: daysAgo(35), changedById: alex.id },
-      { dealId: deal11.id, fromStage: "QUALIFIED", toStage: "DISCOVERY", changedAt: daysAgo(25), changedById: alex.id },
-      { dealId: deal11.id, fromStage: "DISCOVERY", toStage: "PROPOSAL", changedAt: daysAgo(14), changedById: alex.id },
-      { dealId: deal11.id, fromStage: "PROPOSAL", toStage: "NEGOTIATION", changedAt: daysAgo(6), changedById: alex.id },
+      // Deal 11: Pinnacle - Mobile Banking App (progressed to DECISION_MAKER)
+      { dealId: deal11.id, fromStage: null, toStage: "INQUIRY", changedAt: daysAgo(35), changedById: alex.id },
+      { dealId: deal11.id, fromStage: "INQUIRY", toStage: "DISCOVERY_CALL_SCHEDULED", changedAt: daysAgo(28), changedById: alex.id },
+      { dealId: deal11.id, fromStage: "DISCOVERY_CALL_SCHEDULED", toStage: "PROPOSAL_NEEDED", changedAt: daysAgo(20), changedById: alex.id },
+      { dealId: deal11.id, fromStage: "PROPOSAL_NEEDED", toStage: "PROPOSAL_SENT", changedAt: daysAgo(14), changedById: alex.id },
+      { dealId: deal11.id, fromStage: "PROPOSAL_SENT", toStage: "PROPOSAL_REVIEWED", changedAt: daysAgo(10), changedById: alex.id },
+      { dealId: deal11.id, fromStage: "PROPOSAL_REVIEWED", toStage: "DECISION_MAKER", changedAt: daysAgo(6), changedById: alex.id },
 
       // Deal 12: Meridian Health - Patient Portal (progressed to NEGOTIATION)
-      { dealId: deal12.id, fromStage: null, toStage: "QUALIFIED", changedAt: daysAgo(22), changedById: alex.id },
-      { dealId: deal12.id, fromStage: "QUALIFIED", toStage: "DISCOVERY", changedAt: daysAgo(15), changedById: alex.id },
-      { dealId: deal12.id, fromStage: "DISCOVERY", toStage: "PROPOSAL", changedAt: daysAgo(8), changedById: alex.id },
-      { dealId: deal12.id, fromStage: "PROPOSAL", toStage: "NEGOTIATION", changedAt: daysAgo(2), changedById: alex.id },
+      { dealId: deal12.id, fromStage: null, toStage: "INQUIRY", changedAt: daysAgo(22), changedById: alex.id },
+      { dealId: deal12.id, fromStage: "INQUIRY", toStage: "DISCOVERY_CALL_SCHEDULED", changedAt: daysAgo(17), changedById: alex.id },
+      { dealId: deal12.id, fromStage: "DISCOVERY_CALL_SCHEDULED", toStage: "PROPOSAL_SENT", changedAt: daysAgo(10), changedById: alex.id },
+      { dealId: deal12.id, fromStage: "PROPOSAL_SENT", toStage: "PROPOSAL_REVIEWED", changedAt: daysAgo(6), changedById: alex.id },
+      { dealId: deal12.id, fromStage: "PROPOSAL_REVIEWED", toStage: "NEGOTIATION", changedAt: daysAgo(2), changedById: alex.id },
 
-      // Deal 13: Vertex SaaS - Video Series (went to CLOSED_WON)
-      { dealId: deal13.id, fromStage: null, toStage: "QUALIFIED", changedAt: daysAgo(80), changedById: alex.id },
-      { dealId: deal13.id, fromStage: "QUALIFIED", toStage: "DISCOVERY", changedAt: daysAgo(65), changedById: alex.id },
-      { dealId: deal13.id, fromStage: "DISCOVERY", toStage: "PROPOSAL", changedAt: daysAgo(55), changedById: alex.id },
-      { dealId: deal13.id, fromStage: "PROPOSAL", toStage: "NEGOTIATION", changedAt: daysAgo(48), changedById: alex.id },
-      { dealId: deal13.id, fromStage: "NEGOTIATION", toStage: "CLOSED_WON", changedAt: daysAgo(42), changedById: alex.id },
+      // Deal 13: Vertex SaaS - Video Series (full pipeline to CLOSED_WON)
+      { dealId: deal13.id, fromStage: null, toStage: "INQUIRY", changedAt: daysAgo(80), changedById: alex.id },
+      { dealId: deal13.id, fromStage: "INQUIRY", toStage: "DISCOVERY_CALL_SCHEDULED", changedAt: daysAgo(70), changedById: alex.id },
+      { dealId: deal13.id, fromStage: "DISCOVERY_CALL_SCHEDULED", toStage: "PROPOSAL_SENT", changedAt: daysAgo(58), changedById: alex.id },
+      { dealId: deal13.id, fromStage: "PROPOSAL_SENT", toStage: "PROPOSAL_REVIEWED", changedAt: daysAgo(52), changedById: alex.id },
+      { dealId: deal13.id, fromStage: "PROPOSAL_REVIEWED", toStage: "CONTRACT", changedAt: daysAgo(48), changedById: alex.id },
+      { dealId: deal13.id, fromStage: "CONTRACT", toStage: "CLOSED_WON", changedAt: daysAgo(42), changedById: alex.id },
 
-      // Deal 14: NovaTech - Trade Show Booth (moved to PROPOSAL)
-      { dealId: deal14.id, fromStage: null, toStage: "QUALIFIED", changedAt: daysAgo(16), changedById: sam.id },
-      { dealId: deal14.id, fromStage: "QUALIFIED", toStage: "DISCOVERY", changedAt: daysAgo(11), changedById: sam.id },
-      { dealId: deal14.id, fromStage: "DISCOVERY", toStage: "PROPOSAL", changedAt: daysAgo(6), changedById: sam.id },
+      // Deal 14: NovaTech - Trade Show Booth (moved to PROPOSAL_NEEDED)
+      { dealId: deal14.id, fromStage: null, toStage: "INQUIRY", changedAt: daysAgo(16), changedById: sam.id },
+      { dealId: deal14.id, fromStage: "INQUIRY", toStage: "DISCOVERY_CALL_SCHEDULED", changedAt: daysAgo(11), changedById: sam.id },
+      { dealId: deal14.id, fromStage: "DISCOVERY_CALL_SCHEDULED", toStage: "PROPOSAL_NEEDED", changedAt: daysAgo(6), changedById: sam.id },
     ],
   });
   console.log("  Created deal stage history entries");

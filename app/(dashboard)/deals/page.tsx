@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import Link from "next/link";
 import {
   LayoutGrid,
@@ -11,12 +12,13 @@ import {
   ArrowUp,
   ArrowDown,
   Handshake,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -77,10 +79,22 @@ interface DealsResponse {
 // Fetch helpers
 // ---------------------------------------------------------------------------
 
-async function fetchDeals(stage?: string): Promise<DealsResponse> {
-  const params = new URLSearchParams({ limit: "200" });
-  if (stage && stage !== "ALL") {
-    params.set("stage", stage);
+const LIST_PAGE_SIZE = 25;
+
+async function fetchDeals(opts?: {
+  page?: number;
+  limit?: number;
+  stage?: string;
+  ownerId?: string;
+}): Promise<DealsResponse> {
+  const params = new URLSearchParams();
+  params.set("page", String(opts?.page ?? 1));
+  params.set("limit", String(opts?.limit ?? 100));
+  if (opts?.stage && opts.stage !== "ALL") {
+    params.set("stage", opts.stage);
+  }
+  if (opts?.ownerId) {
+    params.set("ownerId", opts.ownerId);
   }
   const res = await fetch(`/api/deals?${params.toString()}`);
   if (!res.ok) throw new Error("Failed to load deals");
@@ -91,13 +105,26 @@ async function fetchDeals(stage?: string): Promise<DealsResponse> {
 // Constants
 // ---------------------------------------------------------------------------
 
-const PIPELINE_STAGES = ["QUALIFIED", "DISCOVERY", "PROPOSAL", "NEGOTIATION"] as const;
+const PIPELINE_STAGES = [
+  "INQUIRY",
+  "DISCOVERY_CALL_SCHEDULED",
+  "PROPOSAL_NEEDED",
+  "PROPOSAL_SENT",
+  "PROPOSAL_REVIEWED",
+  "DECISION_MAKER",
+  "NEGOTIATION",
+  "CONTRACT",
+] as const;
 
 const ALL_STAGES = [
-  "QUALIFIED",
-  "DISCOVERY",
-  "PROPOSAL",
+  "INQUIRY",
+  "DISCOVERY_CALL_SCHEDULED",
+  "PROPOSAL_NEEDED",
+  "PROPOSAL_SENT",
+  "PROPOSAL_REVIEWED",
+  "DECISION_MAKER",
   "NEGOTIATION",
+  "CONTRACT",
   "CLOSED_WON",
   "CLOSED_LOST",
 ] as const;
@@ -120,11 +147,25 @@ export default function DealsPage() {
   const [view, setView] = useState<"pipeline" | "list">("pipeline");
   const [quickAddOpen, setQuickAddOpen] = useState(false);
 
+  const { data: dealsData } = useQuery({
+    queryKey: ["deals", "pipeline"],
+    queryFn: () => fetchDeals(),
+  });
+
+  const totalDeals = dealsData?.pagination?.total ?? 0;
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Deals</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Deals</h1>
+          {totalDeals > 0 && (
+            <Badge variant="secondary" className="text-sm">
+              {totalDeals}
+            </Badge>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           {/* View toggle */}
           <div className="flex items-center rounded-md border bg-background p-0.5">
@@ -255,20 +296,57 @@ function PipelineView() {
 function ListView() {
   const [stageFilter, setStageFilter] = useState("ALL");
   const [ownerFilter, setOwnerFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [sortField, setSortField] = useState<SortField>("updatedAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["deals", "list"],
-    queryFn: () => fetchDeals(),
+    queryKey: ["deals", "list", page, stageFilter, ownerFilter],
+    queryFn: () =>
+      fetchDeals({
+        page,
+        limit: LIST_PAGE_SIZE,
+        stage: stageFilter !== "ALL" ? stageFilter : undefined,
+        ownerId: ownerFilter || undefined,
+      }),
+  });
+
+  // Fetch all owners for the filter dropdown (lightweight query)
+  const { data: allDealsData } = useQuery({
+    queryKey: ["deals", "owners"],
+    queryFn: () => fetchDeals({ limit: 100 }),
+  });
+
+  const stageMutation = useMutation({
+    mutationFn: async ({ dealId, stage }: { dealId: string; stage: string }) => {
+      const res = await fetch(`/api/deals/${dealId}/stage`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage }),
+      });
+      if (!res.ok) throw new Error("Failed to update stage");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+      toast.success("Deal stage updated");
+    },
+    onError: () => {
+      toast.error("Failed to update deal stage");
+    },
   });
 
   const deals = data?.data ?? [];
+  const pagination = data?.pagination;
+  const totalPages = pagination?.totalPages ?? 1;
+  const total = pagination?.total ?? 0;
 
-  // Collect unique owners for the filter
+  // Collect unique owners from full dataset for the filter
   const owners = useMemo(() => {
+    const allDeals = allDealsData?.data ?? [];
     const map = new Map<string, { id: string; name: string }>();
-    deals.forEach((d) => {
+    allDeals.forEach((d) => {
       if (!map.has(d.owner.id)) {
         map.set(d.owner.id, {
           id: d.owner.id,
@@ -277,23 +355,11 @@ function ListView() {
       }
     });
     return Array.from(map.values());
-  }, [deals]);
+  }, [allDealsData]);
 
-  // Filter
-  const filtered = useMemo(() => {
-    let result = [...deals];
-    if (stageFilter && stageFilter !== "ALL") {
-      result = result.filter((d) => d.stage === stageFilter);
-    }
-    if (ownerFilter && ownerFilter !== "ALL") {
-      result = result.filter((d) => d.owner.id === ownerFilter);
-    }
-    return result;
-  }, [deals, stageFilter, ownerFilter]);
-
-  // Sort
+  // Sort current page client-side
   const sorted = useMemo(() => {
-    const arr = [...filtered];
+    const arr = [...deals];
     arr.sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
@@ -330,7 +396,7 @@ function ListView() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return arr;
-  }, [filtered, sortField, sortDir]);
+  }, [deals, sortField, sortDir]);
 
   function handleSort(field: SortField) {
     if (sortField === field) {
@@ -358,7 +424,13 @@ function ListView() {
     <div className="space-y-4">
       {/* Filters */}
       <div className="flex items-center gap-3">
-        <Select value={stageFilter} onValueChange={setStageFilter}>
+        <Select
+          value={stageFilter}
+          onValueChange={(v) => {
+            setStageFilter(v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="All Stages" />
           </SelectTrigger>
@@ -372,7 +444,13 @@ function ListView() {
           </SelectContent>
         </Select>
 
-        <Select value={ownerFilter || "ALL"} onValueChange={(v) => setOwnerFilter(v === "ALL" ? "" : v)}>
+        <Select
+          value={ownerFilter || "ALL"}
+          onValueChange={(v) => {
+            setOwnerFilter(v === "ALL" ? "" : v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="All Owners" />
           </SelectTrigger>
@@ -466,12 +544,30 @@ function ListView() {
                     {formatCurrency(deal.value)}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={stageBadgeColor(deal.stage)}
+                    <Select
+                      value={deal.stage}
+                      onValueChange={(newStage) => {
+                        if (newStage !== deal.stage) {
+                          stageMutation.mutate({ dealId: deal.id, stage: newStage });
+                        }
+                      }}
                     >
-                      {stageLabel(deal.stage)}
-                    </Badge>
+                      <SelectTrigger className="h-7 w-auto border-none bg-transparent p-0 shadow-none focus:ring-0">
+                        <Badge
+                          variant="secondary"
+                          className={stageBadgeColor(deal.stage)}
+                        >
+                          {stageLabel(deal.stage)}
+                        </Badge>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ALL_STAGES.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {stageLabel(s)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {deal.probability}%
@@ -506,6 +602,39 @@ function ListView() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {(page - 1) * LIST_PAGE_SIZE + 1}–
+            {Math.min(page * LIST_PAGE_SIZE, total)} of {total} deals
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

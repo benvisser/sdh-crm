@@ -40,7 +40,8 @@ function parseCSV(csvContent: string): Record<string, string>[] {
 
   for (let i = 1; i < lines.length; i++) {
     const values = parseCSVLine(lines[i]);
-    if (values.length >= headers.length) {
+    // Allow rows with fewer columns — fill missing values with empty strings
+    if (values.length > 0) {
       const record: Record<string, string> = {};
       headers.forEach((header, index) => {
         record[header] = (values[index] || "").replace(/^"|"$/g, "").trim();
@@ -50,6 +51,20 @@ function parseCSV(csvContent: string): Record<string, string>[] {
   }
 
   return records;
+}
+
+// Import result tracking
+interface ImportError {
+  record: string;
+  reason: string;
+}
+
+interface ImportResult {
+  imported: number;
+  skipped: number;
+  failed: number;
+  total: number;
+  errors: ImportError[];
 }
 
 // Data mapping helpers
@@ -78,15 +93,18 @@ function mapLifecycleStageToCompanyType(stage: string): string {
 
 function mapDealStage(hubspotStage: string): string {
   const mapping: Record<string, string> = {
-    "Website Form Submission": "QUALIFIED",
-    "Discovery Call Scheduled": "QUALIFIED",
-    "Proposal Needed": "DISCOVERY",
-    "Proposal Sent": "PROPOSAL",
-    "Contract Sent": "NEGOTIATION",
+    "Website Form Submission": "INQUIRY",
+    "Discovery Call Scheduled": "DISCOVERY_CALL_SCHEDULED",
+    "Proposal Needed": "PROPOSAL_NEEDED",
+    "Proposal Sent": "PROPOSAL_SENT",
+    "Proposal Under Review": "PROPOSAL_REVIEWED",
+    "With Decision Maker": "DECISION_MAKER",
+    "Negotiation": "NEGOTIATION",
+    "Contract Sent": "CONTRACT",
     "Closed Won": "CLOSED_WON",
     "Closed Lost": "CLOSED_LOST",
   };
-  return mapping[hubspotStage] || "QUALIFIED";
+  return mapping[hubspotStage] || "INQUIRY";
 }
 
 function parseBudget(budgetStr: string): number {
@@ -171,14 +189,18 @@ async function clearSeedData() {
 async function importCompanies(
   csvContent: string,
   defaultUserId: string
-): Promise<{ imported: number; companyMap: Map<string, string> }> {
+): Promise<{ result: ImportResult; companyMap: Map<string, string> }> {
   const records = parseCSV(csvContent);
   const hubspotIdToInternalId = new Map<string, string>();
-  let imported = 0;
+  const result: ImportResult = { imported: 0, skipped: 0, failed: 0, total: records.length, errors: [] };
 
   for (const record of records) {
     try {
-      if (!record["Company name"]?.trim()) continue;
+      if (!record["Company name"]?.trim()) {
+        result.skipped++;
+        result.errors.push({ record: `Row ${result.imported + result.skipped + result.failed}`, reason: "Missing company name" });
+        continue;
+      }
 
       const company = await prisma.company.create({
         data: {
@@ -218,16 +240,16 @@ async function importCompanies(
       });
 
       hubspotIdToInternalId.set(record["Record ID"], company.id);
-      imported++;
+      result.imported++;
     } catch (error) {
-      console.warn(
-        `Failed to import company "${record["Company name"]}":`,
-        error
-      );
+      result.failed++;
+      const name = record["Company name"] || "Unknown";
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      result.errors.push({ record: `Company: ${name}`, reason: msg });
     }
   }
 
-  return { imported, companyMap: hubspotIdToInternalId };
+  return { result, companyMap: hubspotIdToInternalId };
 }
 
 // Import contacts from CSV
@@ -235,14 +257,17 @@ async function importContacts(
   csvContent: string,
   defaultUserId: string,
   companyMap: Map<string, string>
-): Promise<number> {
+): Promise<ImportResult> {
   const records = parseCSV(csvContent);
-  let imported = 0;
+  const result: ImportResult = { imported: 0, skipped: 0, failed: 0, total: records.length, errors: [] };
 
   for (const record of records) {
     try {
-      if (!record["First Name"]?.trim() && !record["Last Name"]?.trim())
+      if (!record["First Name"]?.trim() && !record["Last Name"]?.trim()) {
+        result.skipped++;
+        result.errors.push({ record: `Row ${result.imported + result.skipped + result.failed}`, reason: "Missing first and last name" });
         continue;
+      }
 
       let companyId: string | null = null;
 
@@ -291,25 +316,25 @@ async function importContacts(
         },
       });
 
-      imported++;
+      result.imported++;
     } catch (error) {
-      console.warn(
-        `Failed to import contact "${record["First Name"]} ${record["Last Name"]}":`,
-        error
-      );
+      result.failed++;
+      const name = `${record["First Name"] || ""} ${record["Last Name"] || ""}`.trim() || "Unknown";
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      result.errors.push({ record: `Contact: ${name}`, reason: msg });
     }
   }
 
-  return imported;
+  return result;
 }
 
 // Import deals from CSV
 async function importDeals(
   csvContent: string,
   defaultUserId: string
-): Promise<number> {
+): Promise<ImportResult> {
   const records = parseCSV(csvContent);
-  let imported = 0;
+  const result: ImportResult = { imported: 0, skipped: 0, failed: 0, total: records.length, errors: [] };
 
   // Get first company as fallback for deals without a specific company
   let defaultCompany = await prisma.company.findFirst();
@@ -325,22 +350,33 @@ async function importDeals(
 
   for (const record of records) {
     try {
-      if (!record["Deal Name"]?.trim()) continue;
+      if (!record["Deal Name"]?.trim()) {
+        result.skipped++;
+        result.errors.push({ record: `Row ${result.imported + result.skipped + result.failed}`, reason: "Missing deal name" });
+        continue;
+      }
 
       const amount = record["Amount"] ? parseBudget(record["Amount"]) : 1000;
       const closeDate =
         parseHubSpotDate(record["Close Date"]) ||
         new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
+      const hubspotStage = record["Deal Stage"] || "";
+      const mappedStage = mapDealStage(hubspotStage);
+
       await prisma.deal.create({
         data: {
           name: record["Deal Name"].trim(),
           value: amount,
-          stage: mapDealStage(record["Deal Stage"] || "") as
-            | "QUALIFIED"
-            | "DISCOVERY"
-            | "PROPOSAL"
+          stage: mappedStage as
+            | "INQUIRY"
+            | "DISCOVERY_CALL_SCHEDULED"
+            | "PROPOSAL_NEEDED"
+            | "PROPOSAL_SENT"
+            | "PROPOSAL_REVIEWED"
+            | "DECISION_MAKER"
             | "NEGOTIATION"
+            | "CONTRACT"
             | "CLOSED_WON"
             | "CLOSED_LOST",
           expectedCloseDate: closeDate,
@@ -350,16 +386,17 @@ async function importDeals(
         },
       });
 
-      imported++;
+      result.imported++;
     } catch (error) {
-      console.warn(
-        `Failed to import deal "${record["Deal Name"]}":`,
-        error
-      );
+      result.failed++;
+      const name = record["Deal Name"] || "Unknown";
+      const stage = record["Deal Stage"] || "empty";
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      result.errors.push({ record: `Deal: ${name} (stage: "${stage}")`, reason: msg });
     }
   }
 
-  return imported;
+  return result;
 }
 
 export async function POST(request: Request) {
@@ -380,7 +417,8 @@ export async function POST(request: Request) {
     }
 
     let totalImported = 0;
-    const results: Record<string, number> = {};
+    const details: Record<string, ImportResult> = {};
+    const allErrors: ImportError[] = [];
 
     const defaultUser = await ensureDefaultUser();
 
@@ -395,36 +433,44 @@ export async function POST(request: Request) {
         companiesContent,
         defaultUser.id
       );
-      results.companies = companyResults.imported;
+      details.companies = companyResults.result;
       companyMap = companyResults.companyMap;
-      totalImported += companyResults.imported;
+      totalImported += companyResults.result.imported;
+      allErrors.push(...companyResults.result.errors);
     }
 
     // Import contacts
     if (contactsFile) {
       const contactsContent = await contactsFile.text();
-      const contactsImported = await importContacts(
+      const contactsResult = await importContacts(
         contactsContent,
         defaultUser.id,
         companyMap
       );
-      results.contacts = contactsImported;
-      totalImported += contactsImported;
+      details.contacts = contactsResult;
+      totalImported += contactsResult.imported;
+      allErrors.push(...contactsResult.errors);
     }
 
     // Import deals
     if (dealsFile) {
       const dealsContent = await dealsFile.text();
-      const dealsImported = await importDeals(dealsContent, defaultUser.id);
-      results.deals = dealsImported;
-      totalImported += dealsImported;
+      const dealsResult = await importDeals(dealsContent, defaultUser.id);
+      details.deals = dealsResult;
+      totalImported += dealsResult.imported;
+      allErrors.push(...dealsResult.errors);
     }
+
+    const hasErrors = allErrors.length > 0;
 
     return NextResponse.json({
       success: true,
       imported: totalImported,
-      details: results,
-      message: "HubSpot import completed successfully",
+      details,
+      errors: allErrors,
+      message: hasErrors
+        ? `Import completed with ${allErrors.length} issue(s)`
+        : "HubSpot import completed successfully",
     });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {

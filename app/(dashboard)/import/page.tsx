@@ -24,6 +24,27 @@ interface ImportFile {
   recordCount?: number;
 }
 
+interface ImportError {
+  record: string;
+  reason: string;
+}
+
+interface ImportResultDetail {
+  imported: number;
+  skipped: number;
+  failed: number;
+  total: number;
+  errors: ImportError[];
+}
+
+interface ImportResponse {
+  success: boolean;
+  imported: number;
+  details: Record<string, ImportResultDetail>;
+  errors: ImportError[];
+  message: string;
+}
+
 interface BackupFile {
   id: string;
   filename: string;
@@ -45,6 +66,7 @@ export default function ImportPage() {
     progress: number;
     completed: boolean;
   } | null>(null);
+  const [importReport, setImportReport] = useState<ImportResponse | null>(null);
 
   const fileInputRefs = {
     companies: useRef<HTMLInputElement>(null),
@@ -119,6 +141,7 @@ export default function ImportPage() {
     }
 
     setIsImporting(true);
+    setImportReport(null);
     setImportProgress({
       step: "Preparing import...",
       progress: 0,
@@ -162,16 +185,24 @@ export default function ImportPage() {
         throw new Error(errorData.error || "Import failed");
       }
 
-      const result = await response.json();
+      const result: ImportResponse = await response.json();
+      setImportReport(result);
 
       setImportProgress({
         step: "Import completed!",
         progress: 100,
         completed: true,
       });
-      toast.success(
-        `Import completed! ${result.imported} records imported`
-      );
+
+      if (result.errors.length > 0) {
+        toast.warning(
+          `Import completed with issues: ${result.imported} imported, ${result.errors.length} issue(s)`
+        );
+      } else {
+        toast.success(
+          `Import completed! ${result.imported} records imported`
+        );
+      }
 
       // Clear uploaded files
       setImportFiles((prev) =>
@@ -189,7 +220,7 @@ export default function ImportPage() {
       toast.error(`Import failed: ${message}`);
     } finally {
       setIsImporting(false);
-      setTimeout(() => setImportProgress(null), 3000);
+      setTimeout(() => setImportProgress(null), 5000);
     }
   };
 
@@ -277,6 +308,89 @@ export default function ImportPage() {
                 {importProgress.progress}%
               </span>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Import Report */}
+      {importReport && (
+        <Card className={importReport.errors.length > 0 ? "border-amber-200" : "border-green-200"}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3 text-xl">
+              {importReport.errors.length > 0 ? (
+                <AlertCircle className="w-6 h-6 text-amber-600" />
+              ) : (
+                <CheckCircle2 className="w-6 h-6 text-green-600" />
+              )}
+              Import Report
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Summary per entity type */}
+            <div className="grid grid-cols-3 gap-4">
+              {Object.entries(importReport.details).map(([type, detail]) => (
+                <div key={type} className="bg-slate-50 rounded-xl p-4">
+                  <h4 className="font-semibold text-slate-900 capitalize mb-2">{type}</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total in CSV</span>
+                      <span className="font-medium">{detail.total}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-600">Imported</span>
+                      <span className="font-medium text-green-600">{detail.imported}</span>
+                    </div>
+                    {detail.skipped > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-amber-600">Skipped</span>
+                        <span className="font-medium text-amber-600">{detail.skipped}</span>
+                      </div>
+                    )}
+                    {detail.failed > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-red-600">Failed</span>
+                        <span className="font-medium text-red-600">{detail.failed}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Error details */}
+            {importReport.errors.length > 0 && (
+              <div>
+                <h4 className="font-semibold text-slate-900 mb-2">
+                  Issues ({importReport.errors.length})
+                </h4>
+                <div className="max-h-60 overflow-y-auto rounded-lg border">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 sticky top-0">
+                      <tr>
+                        <th className="text-left p-2 font-medium text-slate-600">Record</th>
+                        <th className="text-left p-2 font-medium text-slate-600">Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importReport.errors.map((err, i) => (
+                        <tr key={i} className="border-t">
+                          <td className="p-2 text-slate-900">{err.record}</td>
+                          <td className="p-2 text-red-600">{err.reason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setImportReport(null)}
+            >
+              Dismiss Report
+            </Button>
           </CardContent>
         </Card>
       )}

@@ -152,10 +152,14 @@ interface SearchContact {
 // ---------------------------------------------------------------------------
 
 const ALL_STAGES = [
-  { value: "QUALIFIED", label: "Qualified" },
-  { value: "DISCOVERY", label: "Discovery" },
-  { value: "PROPOSAL", label: "Proposal" },
+  { value: "INQUIRY", label: "Inquiry" },
+  { value: "DISCOVERY_CALL_SCHEDULED", label: "Discovery Call Scheduled" },
+  { value: "PROPOSAL_NEEDED", label: "Proposal Needed" },
+  { value: "PROPOSAL_SENT", label: "Proposal Sent" },
+  { value: "PROPOSAL_REVIEWED", label: "Proposal Reviewed" },
+  { value: "DECISION_MAKER", label: "With Decision Maker" },
   { value: "NEGOTIATION", label: "Negotiation" },
+  { value: "CONTRACT", label: "Contract" },
   { value: "CLOSED_WON", label: "Closed Won" },
   { value: "CLOSED_LOST", label: "Closed Lost" },
 ];

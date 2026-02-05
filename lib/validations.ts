@@ -91,10 +91,14 @@ export const createDealSchema = z.object({
   probability: z.number().int().min(0).max(100).optional(),
   stage: z
     .enum([
-      "QUALIFIED",
-      "DISCOVERY",
-      "PROPOSAL",
+      "INQUIRY",
+      "DISCOVERY_CALL_SCHEDULED",
+      "PROPOSAL_NEEDED",
+      "PROPOSAL_SENT",
+      "PROPOSAL_REVIEWED",
+      "DECISION_MAKER",
       "NEGOTIATION",
+      "CONTRACT",
       "CLOSED_WON",
       "CLOSED_LOST",
     ])
@@ -136,10 +140,14 @@ export const updateDealSchema = createDealSchema.partial();
 
 export const updateDealStageSchema = z.object({
   stage: z.enum([
-    "QUALIFIED",
-    "DISCOVERY",
-    "PROPOSAL",
+    "INQUIRY",
+    "DISCOVERY_CALL_SCHEDULED",
+    "PROPOSAL_NEEDED",
+    "PROPOSAL_SENT",
+    "PROPOSAL_REVIEWED",
+    "DECISION_MAKER",
     "NEGOTIATION",
+    "CONTRACT",
     "CLOSED_WON",
     "CLOSED_LOST",
   ]),

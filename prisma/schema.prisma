@@ -185,7 +185,7 @@ model Deal {
   currency          String        @default("USD")
   probability       Int           @default(50)
   weightedValue     Decimal?      @map("weighted_value") @db.Decimal(15, 2)
-  stage             DealStage     @default(QUALIFIED)
+  stage             DealStage     @default(INQUIRY)
   pipelinePosition  Int           @default(0) @map("pipeline_position")
   expectedCloseDate DateTime      @map("expected_close_date") @db.Date
   actualCloseDate   DateTime?     @map("actual_close_date") @db.Date
@@ -248,10 +248,14 @@ enum DealContactRole {
 }
 
 enum DealStage {
-  QUALIFIED
-  DISCOVERY
-  PROPOSAL
+  INQUIRY
+  DISCOVERY_CALL_SCHEDULED
+  PROPOSAL_NEEDED
+  PROPOSAL_SENT
+  PROPOSAL_REVIEWED
+  DECISION_MAKER
   NEGOTIATION
+  CONTRACT
   CLOSED_WON
   CLOSED_LOST
 }

@@ -52,6 +52,10 @@ export async function PATCH(
       if (lostReasonNote) {
         updateData.lostReasonNote = lostReasonNote;
       }
+    } else {
+      // Moving to an open stage — clear closed fields
+      updateData.closedStatus = null;
+      updateData.actualCloseDate = null;
     }
 
     const [deal] = await prisma.$transaction([

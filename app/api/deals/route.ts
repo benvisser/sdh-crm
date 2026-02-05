@@ -110,7 +110,7 @@ export async function POST(request: Request) {
         stageHistory: {
           create: {
             fromStage: null,
-            toStage: rest.stage || "QUALIFIED",
+            toStage: rest.stage || "INQUIRY",
             changedById: auth.userId,
           },
         },

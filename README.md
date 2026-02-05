@@ -79,7 +79,7 @@ createdb -U postgres agency_crm
 - Upcoming activities and recent deals tables
 
 ### Deals
-- **Pipeline view:** Kanban columns grouped by deal stage (QUALIFIED → DISCOVERY → PROPOSAL → NEGOTIATION)
+- **Pipeline view:** Kanban columns grouped by deal stage (INQUIRY → DISCOVERY CALL → PROPOSAL NEEDED → PROPOSAL SENT → PROPOSAL REVIEWED → DECISION MAKER → NEGOTIATION → CONTRACT)
 - **List view:** Sortable table with search and stage filtering
 - **Detail page:** Inline editing, stage progression, contacts, notes, activities, history timeline
 - Weighted value calculation (value x probability)
