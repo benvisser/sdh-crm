@@ -9,6 +9,7 @@ import {
   Users,
   CalendarCheck,
   LogOut,
+  Import,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -21,6 +22,7 @@ const navigation = [
   { name: "Companies", href: "/companies", icon: Building2 },
   { name: "Contacts", href: "/contacts", icon: Users },
   { name: "Activities", href: "/activities", icon: CalendarCheck },
+  { name: "Import", href: "/import", icon: Import },
 ];
 
 export function Sidebar() {
